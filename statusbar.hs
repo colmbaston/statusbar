@@ -15,7 +15,7 @@ import           Data.Array.IO
 import qualified Data.Map as M
 import           Data.Map (Map)
 import           Data.Time.Clock
-import           Data.Text (Text, pack, unpack)
+import           Data.Text (Text, pack)
 import qualified Data.Text            as T
 import qualified Data.Text.IO         as T
 import           Data.Attoparsec.Text as P
@@ -38,10 +38,14 @@ main = do hSetBuffering stdout LineBuffering
 updateLoop :: MVar Int -> Array Int Block -> IOArray Int Text -> IO ()
 updateLoop v ba ta = forever (do i <- takeMVar v
                                  let b = ba ! i
-                                 r <- parseOnly (parser b) <$> command b
-                                 writeArray ta i (either (const (name b <> ": parse error")) id r)
-                                 s <- filter (not .T.null) <$> getElems ta
-                                 T.putStrLn ("| " <> T.intercalate " | " s <> " "))
+                                 new     <- parser b <$> command b
+                                 current <- readArray ta i
+                                 when (new /= current)
+                                   (do writeArray ta i new
+                                       s <- filter (not . T.null) <$> getElems ta
+                                       T.putStr "| "
+                                       T.putStr (T.intercalate " | " s)
+                                       T.putStrLn " "))
 
 -- | POLLING | --
 
@@ -54,24 +58,19 @@ waitMicroseconds n = do ps <- fromIntegral . diffTimeToPicoseconds . utctDayTime
 
 -- | BLOCKS | --
 
-data Block = Block { name :: Text,  command :: IO Text, parser :: Parser Text, thread :: MVar Int -> IO () }
+data Block = Block { command :: IO Text, parser :: Text -> Text, thread :: MVar Int -> IO () }
 
 blocks :: Map String (Int -> Block)
-blocks = M.fromList [("volume",   volume),
-                     ("battery",  battery),
-                     ("datetime", datetime)]
+blocks = M.fromList [("battery",  battery),
+                     ("datetime", datetime),
+                     ("dropbox",  dropbox),
+                     ("volume",   volume)]
 
-datetime :: Int -> Block
-datetime = Block "datetime" c p . pollMicroseconds 60000000
-  where
-    c :: IO Text
-    c = pack <$> readProcess "date" ["+%A %d/%m/%Y @ %H:%M"] ""
-
-    p :: Parser Text
-    p = takeTill (=='\n')
+runParser :: Text -> Parser Text -> Text -> Text
+runParser n p = either (const (n <> ": parse error")) id . parseOnly p
 
 battery :: Int -> Block
-battery = Block "battery" c p . pollMicroseconds 60000000
+battery = Block c (runParser "battery" p) . pollMicroseconds 60000000
   where
     c :: IO Text
     c = pack <$> readProcess "acpi" [] ""
@@ -82,8 +81,27 @@ battery = Block "battery" c p . pollMicroseconds 60000000
            x <- P.takeWhile isDigit
            pure ("Battery: " <> x <> "%")
 
+datetime :: Int -> Block
+datetime = Block c (runParser "datetime" p) . pollMicroseconds 60000000
+  where
+    c :: IO Text
+    c = pack <$> readProcess "date" ["+%A %d/%m/%Y @ %H:%M"] ""
+
+    p :: Parser Text
+    p = takeTill (=='\n')
+
+dropbox :: Int -> Block
+dropbox = Block c (runParser "dropbox" p) . pollMicroseconds 1000000
+  where
+    c :: IO Text
+    c = pack <$> readProcess "dropbox-cli" ["status"] ""
+
+    p :: Parser Text
+    p = choice [const ""                    <$> string "Up to date",
+                const "Dropbox: Syncing..." <$> pure ()]
+
 volume :: Int -> Block
-volume = Block "volume" c p . pollMicroseconds 1000000
+volume = Block c (runParser "volume" p) . pollMicroseconds 1000000
   where
     c :: IO Text
     c = pack <$> readProcess "amixer" ["sget","Master"] ""
