@@ -69,11 +69,14 @@ blocks = M.fromList [("battery",  battery),
 runParser :: Text -> Parser Text -> Text -> Text
 runParser n p = either (const (n <> ": parse error")) id . parseOnly p
 
+middle :: (a, b, c) -> b
+middle (_, x, _) = x
+
 battery :: Int -> Block
 battery = Block c (runParser "battery" p) . pollMicroseconds 60000000
   where
     c :: IO Text
-    c = pack <$> readProcess "acpi" [] ""
+    c = pack . middle <$> readProcessWithExitCode "acpi" [] ""
 
     p :: Parser Text
     p = do string "Battery 0: "
@@ -85,7 +88,7 @@ datetime :: Int -> Block
 datetime = Block c (runParser "datetime" p) . pollMicroseconds 60000000
   where
     c :: IO Text
-    c = pack <$> readProcess "date" ["+%A %d/%m/%Y @ %H:%M"] ""
+    c = pack . middle <$> readProcessWithExitCode "date" ["+%A %d/%m/%Y @ %H:%M"] ""
 
     p :: Parser Text
     p = takeTill (=='\n')
@@ -94,7 +97,7 @@ dropbox :: Int -> Block
 dropbox = Block c (runParser "dropbox" p) . pollMicroseconds 1000000
   where
     c :: IO Text
-    c = pack <$> readProcess "dropbox-cli" ["status"] ""
+    c = pack . middle <$> readProcessWithExitCode "dropbox-cli" ["status"] ""
 
     p :: Parser Text
     p = choice [const ""                    <$> string "Up to date",
@@ -104,7 +107,7 @@ volume :: Int -> Block
 volume = Block c (runParser "volume" p) . pollMicroseconds 1000000
   where
     c :: IO Text
-    c = pack <$> readProcess "amixer" ["sget","Master"] ""
+    c = pack . middle <$> readProcessWithExitCode "amixer" ["sget","Master"] ""
 
     p :: Parser Text
     p = do takeTill (=='[')
