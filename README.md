@@ -25,9 +25,10 @@ Blocks are internally represented as the product of three components:
 
 The currently implemented blocks and the external commands they depend upon are listed below.
 
-| Block Name | Command                                                                 |
-|------------|-------------------------------------------------------------------------|
-| battery    | [`acpi`](https://www.archlinux.org/packages/community/x86_64/acpi/)     |
-| datetime   | `date`                                                                  |
-| dropbox    | [`dropbox-cli`](https://aur.archlinux.org/packages/dropbox-cli/)        |
-| volume     | [`amixer`](https://www.archlinux.org/packages/extra/x86_64/alsa-utils/) |
+| Block Name | Command                                                                       |
+|------------|-------------------------------------------------------------------------------|
+| battery    | [`acpi`](https://www.archlinux.org/packages/community/x86_64/acpi/)           |
+| datetime   | `date`                                                                        |
+| dropbox    | [`dropbox-cli`](https://aur.archlinux.org/packages/dropbox-cli/)              |
+| playerctl  | [`playerctl`](https://www.archlinux.org/packages/community/x86_64/playerctl/) |
+| volume     | [`amixer`](https://www.archlinux.org/packages/extra/x86_64/alsa-utils/)       |

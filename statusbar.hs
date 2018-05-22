@@ -61,22 +61,23 @@ waitMicroseconds n = do ps <- fromIntegral . diffTimeToPicoseconds . utctDayTime
 data Block = Block { command :: IO Text, parser :: Text -> Text, thread :: MVar Int -> IO () }
 
 blocks :: Map String (Int -> Block)
-blocks = M.fromList [("battery",  battery),
-                     ("datetime", datetime),
-                     ("dropbox",  dropbox),
-                     ("volume",   volume)]
+blocks = M.fromList [("battery",   battery),
+                     ("datetime",  datetime),
+                     ("dropbox",   dropbox),
+                     ("playerctl", playerctl),
+                     ("volume",    volume)]
+
+systemCommand :: String -> [String] -> IO Text
+systemCommand c as = pack . (\(_,x,_) -> x) <$> readProcessWithExitCode c as ""
 
 runParser :: Text -> Parser Text -> Text -> Text
 runParser n p = either (const (n <> ": parse error")) id . parseOnly p
-
-middle :: (a, b, c) -> b
-middle (_, x, _) = x
 
 battery :: Int -> Block
 battery = Block c (runParser "battery" p) . pollMicroseconds 60000000
   where
     c :: IO Text
-    c = pack . middle <$> readProcessWithExitCode "acpi" [] ""
+    c = systemCommand "acpi" []
 
     p :: Parser Text
     p = do string "Battery 0: "
@@ -88,7 +89,7 @@ datetime :: Int -> Block
 datetime = Block c (runParser "datetime" p) . pollMicroseconds 60000000
   where
     c :: IO Text
-    c = pack . middle <$> readProcessWithExitCode "date" ["+%A %d/%m/%Y @ %H:%M"] ""
+    c = systemCommand "date" ["+%A %d/%m/%Y @ %H:%M"]
 
     p :: Parser Text
     p = takeTill (=='\n')
@@ -97,17 +98,28 @@ dropbox :: Int -> Block
 dropbox = Block c (runParser "dropbox" p) . pollMicroseconds 1000000
   where
     c :: IO Text
-    c = pack . middle <$> readProcessWithExitCode "dropbox-cli" ["status"] ""
+    c = systemCommand "dropbox-cli" ["status"]
 
     p :: Parser Text
     p = choice [const ""                    <$> string "Up to date",
                 const "Dropbox: Syncing..." <$> pure ()]
 
+playerctl :: Int -> Block
+playerctl = Block c (runParser "playerctl" p) . pollMicroseconds 1000000
+  where
+    c :: IO Text
+    c = do t <- systemCommand "playerctl" ["metadata", "title"]
+           a <- systemCommand "playerctl" ["metadata", "artist"]
+           pure (t <> " - " <> a <> "\n")
+
+    p :: Parser Text
+    p = takeTill (=='\n')
+
 volume :: Int -> Block
 volume = Block c (runParser "volume" p) . pollMicroseconds 1000000
   where
     c :: IO Text
-    c = pack . middle <$> readProcessWithExitCode "amixer" ["sget","Master"] ""
+    c = systemCommand "amixer" ["sget","Master"]
 
     p :: Parser Text
     p = do takeTill (=='[')
