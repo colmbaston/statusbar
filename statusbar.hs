@@ -110,7 +110,11 @@ playerctl = Block c (runParser "playerctl" p) . pollMicroseconds 1000000
     c :: IO Text
     c = do t <- systemCommand "playerctl" ["metadata", "title"]
            a <- systemCommand "playerctl" ["metadata", "artist"]
-           pure (t <> " - " <> a <> "\n")
+           if T.null t || T.null a
+              then pure ""
+              else do s <- T.init <$> systemCommand "playerctl" ["status"]
+                      let statusText = if s /= "Playing" then " (" <> s <> ")" else ""
+                      pure (t <> " - " <> a <> statusText <> "\n")
 
     p :: Parser Text
     p = takeTill (=='\n')
