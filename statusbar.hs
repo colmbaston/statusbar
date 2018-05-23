@@ -101,8 +101,9 @@ dropbox = Block c (runParser "dropbox" p) . pollMicroseconds 1000000
     c = systemCommand "dropbox-cli" ["status"]
 
     p :: Parser Text
-    p = choice [const ""                    <$> string "Up to date",
-                const "Dropbox: Syncing..." <$> pure ()]
+    p = choice [const ""                      <$> string "Up to date",
+                const "Dropbox: Not running!" <$> string "Dropbox isn't running!",
+                const "Dropbox: Syncing..."   <$> pure ()]
 
 playerctl :: Int -> Block
 playerctl = Block c (runParser "playerctl" p) . pollMicroseconds 1000000
