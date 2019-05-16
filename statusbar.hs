@@ -109,8 +109,8 @@ playerctl :: Int -> Block
 playerctl = Block c (runParser "playerctl" p) . pollMicroseconds 1000000
   where
     c :: IO Text
-    c = do t <- systemCommand "playerctl" ["metadata", "title"]
-           a <- systemCommand "playerctl" ["metadata", "artist"]
+    c = do t <- T.init <$> systemCommand "playerctl" ["metadata", "title"]
+           a <- T.init <$> systemCommand "playerctl" ["metadata", "artist"]
            if T.null t || T.null a
               then pure ""
               else do s <- T.init <$> systemCommand "playerctl" ["status"]
@@ -127,10 +127,9 @@ volume = Block c (runParser "volume" p) . pollMicroseconds 1000000
     c = systemCommand "amixer" ["sget","Master"]
 
     p :: Parser Text
-    p = do takeTill (=='[')
-           char '['
+    p = do takeTill (=='[') >> char '['
            x <- P.takeWhile isDigit
-           replicateM_ 2 (takeTill (=='[') >> char '[')
+           takeTill (=='[') >> char '['
            b <- choice [const True  <$> string "on",
                         const False <$> string "off"]
            pure ("Volume: " <> if b
