@@ -9,7 +9,6 @@ import System.Environment
 
 import           Data.Char
 import           Data.List
-import           Data.Monoid
 import           Data.Array
 import           Data.Array.IO
 import qualified Data.Map as M
@@ -33,19 +32,19 @@ main = do hSetBuffering stdout LineBuffering
                      mapM_ (forkIO . ($v) . thread) bs
                      let l = length bs
                      ta <- newArray (1,l) ""
-                     updateLoop v (listArray (1,l) bs) ta
+                     forever (update v (listArray (1,l) bs) ta)
 
-updateLoop :: MVar Int -> Array Int Block -> IOArray Int Text -> IO ()
-updateLoop v ba ta = forever (do i <- takeMVar v
-                                 let b = ba ! i
-                                 new     <- parser b <$> command b
-                                 current <- readArray ta i
-                                 when (new /= current)
-                                   (do writeArray ta i new
-                                       s <- filter (not . T.null) <$> getElems ta
-                                       T.putStr "| "
-                                       T.putStr (T.intercalate " | " s)
-                                       T.putStrLn " "))
+update :: MVar Int -> Array Int Block -> IOArray Int Text -> IO ()
+update v ba ta = do i <- takeMVar v
+                    let b = ba ! i
+                    new     <- parser b <$> command b
+                    current <- readArray ta i
+                    when (new /= current)
+                      (do writeArray ta i new
+                          s <- filter (not . T.null) <$> getElems ta
+                          T.putStr "| "
+                          T.putStr (T.intercalate " | " s)
+                          T.putStrLn " ")
 
 -- | POLLING | --
 
