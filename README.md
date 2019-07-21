@@ -4,7 +4,7 @@ A text-based status bar written in Haskell. It was written solely for my own use
 
 ## Usage
 
-The program should be called with command-line arguments constituting a space-separated list of blocks. The output for the listed blocks should then be displayed in the order listed.
+The program should be called with command-line arguments constituting a space-separated list of blocks. The output for the listed blocks should then be displayed in the order listed, with a new line printed each time the output text for one of the blocks updates.
 
 ```
 > ./statusbar volume battery datetime
