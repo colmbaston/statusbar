@@ -101,9 +101,9 @@ dropbox = Block c (runParser "dropbox" p) . pollMicroseconds 1000000
     c = systemCommand "dropbox-cli" ["status"]
 
     p :: Parser Text
-    p = choice [const ""                      <$> string "Up to date",
-                const "Dropbox: Not running!" <$> string "Dropbox isn't running!",
-                const "Dropbox: Syncing..."   <$> pure ()]
+    p = choice [""                      <$ string "Up to date",
+                "Dropbox: Not running!" <$ string "Dropbox isn't running!",
+                "Dropbox: Syncing..."   <$ pure ()]
 
 playerctl :: Int -> Block
 playerctl = Block c (runParser "playerctl" p) . pollMicroseconds 1000000
@@ -130,8 +130,8 @@ volume = Block c (runParser "volume" p) . pollMicroseconds 1000000
     p = do takeTill (=='[') >> char '['
            x <- P.takeWhile isDigit
            takeTill (=='[') >> char '['
-           b <- choice [const True  <$> string "on",
-                        const False <$> string "off"]
+           b <- choice [True  <$ string "on",
+                        False <$ string "off"]
            pure ("Volume: " <> if b
                                  then x <> "%"
                                  else "Muted")
