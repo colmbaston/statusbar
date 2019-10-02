@@ -48,6 +48,9 @@ update v ba ta = do i <- takeMVar v
 
 -- | POLLING | --
 
+oneSecond :: Int
+oneSecond = 1000000
+
 pollMicroseconds :: Int -> Int -> MVar Int -> IO ()
 pollMicroseconds n i v = forever (putMVar v i >> waitMicroseconds n)
 
@@ -73,7 +76,7 @@ runParser :: Text -> Parser Text -> Text -> Text
 runParser n p = either (const (n <> ": parse error")) id . parseOnly p
 
 battery :: Int -> Block
-battery = Block c (runParser "battery" p) . pollMicroseconds 60000000
+battery = Block c (runParser "battery" p) . pollMicroseconds (60 * oneSecond)
   where
     c :: IO Text
     c = systemCommand "acpi" []
@@ -85,16 +88,16 @@ battery = Block c (runParser "battery" p) . pollMicroseconds 60000000
            pure ("Battery: " <> x <> "%")
 
 datetime :: Int -> Block
-datetime = Block c (runParser "datetime" p) . pollMicroseconds 60000000
+datetime = Block c (runParser "datetime" p) . pollMicroseconds oneSecond
   where
     c :: IO Text
-    c = systemCommand "date" ["+%A %d/%m/%Y @ %H:%M"]
+    c = systemCommand "date" ["+%A %d/%m/%Y @ %H:%M:%S"]
 
     p :: Parser Text
     p = takeTill (=='\n')
 
 dropbox :: Int -> Block
-dropbox = Block c (runParser "dropbox" p) . pollMicroseconds 1000000
+dropbox = Block c (runParser "dropbox" p) . pollMicroseconds oneSecond
   where
     c :: IO Text
     c = systemCommand "dropbox-cli" ["status"]
@@ -105,7 +108,7 @@ dropbox = Block c (runParser "dropbox" p) . pollMicroseconds 1000000
                 "Dropbox: Syncing..."   <$ pure ()]
 
 playerctl :: Int -> Block
-playerctl = Block c (runParser "playerctl" p) . pollMicroseconds 1000000
+playerctl = Block c (runParser "playerctl" p) . pollMicroseconds oneSecond
   where
     c :: IO Text
     c = do t <- systemCommand "playerctl" ["metadata", "title"]
@@ -120,7 +123,7 @@ playerctl = Block c (runParser "playerctl" p) . pollMicroseconds 1000000
     p = takeTill (=='\n')
 
 volume :: Int -> Block
-volume = Block c (runParser "volume" p) . pollMicroseconds 1000000
+volume = Block c (runParser "volume" p) . pollMicroseconds oneSecond
   where
     c :: IO Text
     c = systemCommand "amixer" ["sget","Master"]
