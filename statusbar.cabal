@@ -1,4 +1,4 @@
-cabal-version:       >= 1.10
+cabal-version:       >= 2.0
 
 name:                statusbar
 version:             0.1.0.0
@@ -7,15 +7,14 @@ author:              Colm Baston
 maintainer:          colm@colmbaston.uk
 build-type:          Simple
 extra-source-files:  README.md
-  optimization:        2
 
 executable statusbar
   main-is:             statusbar.hs
   default-language:    Haskell2010
-  build-depends:       base       >= 4.14 && < 4.15,
-                       containers >= 0.6,
-                       array      >= 0.5,
-                       process    >= 1.6,
-                       text       >= 1.2,
-                       attoparsec >= 0.13,
-                       time       >= 1.9
+  build-depends:       base       ^>= 4.14,
+                       time       ^>= 1.9,
+                       containers ^>= 0.6,
+                       array      ^>= 0.5,
+                       process    ^>= 1.6,
+                       text       ^>= 1.2,
+                       attoparsec ^>= 0.13
