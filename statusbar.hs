@@ -9,6 +9,7 @@ import System.Environment
 
 import           Data.Char
 import           Data.List
+import           Data.Either
 import           Data.Array
 import           Data.Array.IO
 import qualified Data.Map as M
@@ -56,7 +57,7 @@ pollMicroseconds n i v = forever (putMVar v i >> waitMicroseconds n)
 
 waitMicroseconds :: Int -> IO ()
 waitMicroseconds n = do ps <- fromIntegral . diffTimeToPicoseconds . utctDayTime <$> getCurrentTime
-                        threadDelay (n - ps `quot` 1000000 `rem` n)
+                        threadDelay (n - ps `quot` oneSecond `rem` n)
 
 -- | BLOCKS | --
 
@@ -73,7 +74,7 @@ systemCommand :: String -> [String] -> IO Text
 systemCommand c as = pack . (\(_,x,_) -> x) <$> readProcessWithExitCode c as ""
 
 runParser :: Text -> Parser Text -> Text -> Text
-runParser n p = either (const (n <> ": parse error")) id . parseOnly p
+runParser n p = fromRight (n <> ": parse error") . parseOnly p
 
 battery :: Int -> Block
 battery = Block c (runParser "battery" p) . pollMicroseconds (60 * oneSecond)

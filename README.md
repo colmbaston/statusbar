@@ -1,6 +1,6 @@
 # statusbar
 
-A text-based status bar written in Haskell. It was written solely for my own use with the [i3 window manager](https://i3wm.org/) on [Arch Linux](https://www.archlinux.org/), so customisability is very limited outside of editing the source code, and it may depend on external packages that are unavailable on other systems.
+A text-based status bar written in Haskell. It was written solely for my own use with the [i3](https://i3wm.org/) and [Sway](https://swaywm.org/) window managers on my systems running [Arch Linux](https://www.archlinux.org/), so customisability is very limited outside of editing the source code, and it may depend on external packages that are unavailable on other systems.
 
 ## Usage
 
