@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, TupleSections #-}
 
 import Control.Monad
 import Control.Concurrent
@@ -10,7 +10,6 @@ import System.Environment
 import           Data.Char
 import           Data.List
 import           Data.Either
-import           Data.Array
 import           Data.Array.IO
 import qualified Data.Map as M
 import           Data.Map (Map)
@@ -24,72 +23,69 @@ import           Data.Attoparsec.Text as P
 
 main :: IO ()
 main = do hSetBuffering stdout LineBuffering
-          as <- zipWithM (\n b -> ($n) <$> M.lookup b blocks) [1..] <$> getArgs
+          as <- zipWithM (\n b -> ($ n) <$> M.lookup b blocks) [1 ..] <$> getArgs
           case concat as of
             [] -> do p <- getProgName
                      putStrLn ("Usage: " ++ p ++ " [space-separated list of blocks]")
                      putStrLn ("Available blocks: " ++ intercalate ", " (M.keys blocks))
             bs -> do v <- newEmptyMVar
-                     mapM_ (forkIO . ($v) . thread) bs
-                     let l = length bs
-                     ta <- newArray (1,l) ""
-                     forever (update v (listArray (1,l) bs) ta)
+                     mapM_ (forkIO . ($ v)) bs
+                     ta <- newArray (1, length bs) ""
+                     forever (update v ta)
 
-update :: MVar Int -> Array Int Block -> IOArray Int Text -> IO ()
-update v ba ta = do i <- takeMVar v
-                    let b = ba ! i
-                    new     <- parser b <$> command b
-                    current <- readArray ta i
-                    when (new /= current)
-                      (do writeArray ta i new
-                          s <- filter (not . T.null) <$> getElems ta
-                          T.putStr "| "
-                          T.putStr (T.intercalate " | " s)
-                          T.putStrLn " ")
+update :: MVar (Int, Text) -> IOArray Int Text -> IO ()
+update v ta = do (i, new) <- takeMVar v
+                 current  <- readArray ta i
+                 when (new /= current)
+                   (do writeArray ta i new
+                       s <- filter (not . T.null) <$> getElems ta
+                       T.putStr "| "
+                       T.putStr (T.intercalate " | " s)
+                       T.putStrLn " ")
 
 -- | POLLING | --
 
 oneSecond :: Int
 oneSecond = 1000000
 
-pollMicroseconds :: Int -> Int -> MVar Int -> IO ()
-pollMicroseconds n i v = forever (putMVar v i >> waitMicroseconds n)
+pollMicroseconds :: Int -> IO Text -> Int -> MVar (Int, Text) -> IO ()
+pollMicroseconds n p i v = forever (p >>= putMVar v . (i, ) >> waitMicroseconds n)
 
 waitMicroseconds :: Int -> IO ()
-waitMicroseconds n = do ps <- fromIntegral . diffTimeToPicoseconds . utctDayTime <$> getCurrentTime
-                        threadDelay (n - ps `quot` oneSecond `rem` n)
+waitMicroseconds n = do ps <- fromInteger . diffTimeToPicoseconds . utctDayTime <$> getCurrentTime
+                        threadDelay (n - (ps `quot` 1000000) `rem` n)
 
 -- | BLOCKS | --
 
-data Block = Block { command :: IO Text, parser :: Text -> Text, thread :: MVar Int -> IO () }
+type Block = MVar (Int, Text) -> IO ()
 
 blocks :: Map String (Int -> Block)
-blocks = M.fromList [("battery",   battery),
-                     ("datetime",  datetime),
-                     ("dropbox",   dropbox),
-                     ("playerctl", playerctl),
-                     ("volume",    volume)]
+blocks = M.fromAscList [("battery",   battery),
+                        ("datetime",  datetime),
+                        ("dropbox",   dropbox),
+                        ("playerctl", playerctl),
+                        ("volume",    volume)]
 
 systemCommand :: String -> [String] -> IO Text
-systemCommand c as = pack . (\(_,x,_) -> x) <$> readProcessWithExitCode c as ""
+systemCommand c as = pack . (\(_, x, _) -> x) <$> readProcessWithExitCode c as ""
 
 runParser :: Text -> Parser Text -> Text -> Text
 runParser n p = fromRight (n <> ": parse error") . parseOnly p
 
 battery :: Int -> Block
-battery = Block c (runParser "battery" p) . pollMicroseconds (60 * oneSecond)
+battery = pollMicroseconds (60 * oneSecond) (runParser "battery" p <$> c)
   where
     c :: IO Text
     c = systemCommand "acpi" []
 
     p :: Parser Text
-    p = do string "Battery 0: "
-           takeTill isDigit
+    p = do void (string "Battery 0: ")
+           void (takeTill isDigit)
            x <- P.takeWhile isDigit
            pure ("Battery: " <> x <> "%")
 
 datetime :: Int -> Block
-datetime = Block c (runParser "datetime" p) . pollMicroseconds oneSecond
+datetime = pollMicroseconds oneSecond (runParser "datetime" p <$> c)
   where
     c :: IO Text
     c = systemCommand "date" ["+%A %d/%m/%Y @ %H:%M:%S"]
@@ -98,7 +94,7 @@ datetime = Block c (runParser "datetime" p) . pollMicroseconds oneSecond
     p = takeTill (=='\n')
 
 dropbox :: Int -> Block
-dropbox = Block c (runParser "dropbox" p) . pollMicroseconds oneSecond
+dropbox = pollMicroseconds oneSecond (runParser "dropbox" p <$> c)
   where
     c :: IO Text
     c = systemCommand "dropbox-cli" ["status"]
@@ -109,7 +105,7 @@ dropbox = Block c (runParser "dropbox" p) . pollMicroseconds oneSecond
                 "Dropbox: Syncing..."   <$ pure ()]
 
 playerctl :: Int -> Block
-playerctl = Block c (runParser "playerctl" p) . pollMicroseconds oneSecond
+playerctl = pollMicroseconds oneSecond (runParser "playerctl" p <$> c)
   where
     c :: IO Text
     c = do t <- systemCommand "playerctl" ["metadata", "title"]
@@ -124,15 +120,15 @@ playerctl = Block c (runParser "playerctl" p) . pollMicroseconds oneSecond
     p = takeTill (=='\n')
 
 volume :: Int -> Block
-volume = Block c (runParser "volume" p) . pollMicroseconds oneSecond
+volume = pollMicroseconds oneSecond (runParser "volume" p <$> c)
   where
     c :: IO Text
     c = systemCommand "amixer" ["sget","Master"]
 
     p :: Parser Text
-    p = do takeTill (=='[') >> char '['
+    p = do takeTill (=='[') >> void (char '[')
            x <- P.takeWhile isDigit
-           takeTill (=='[') >> char '['
+           takeTill (=='[') >> void (char '[')
            b <- choice [True  <$ string "on",
                         False <$ string "off"]
            pure ("Volume: " <> if b

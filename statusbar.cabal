@@ -11,7 +11,8 @@ extra-source-files:  README.md
 executable statusbar
   main-is:             statusbar.hs
   default-language:    Haskell2010
-  build-depends:       base       ^>= 4.14,
+  ghc-options:         -Wall -threaded
+  build-depends:       base        >= 4.14,
                        time       ^>= 1.9,
                        containers ^>= 0.6,
                        array      ^>= 0.5,

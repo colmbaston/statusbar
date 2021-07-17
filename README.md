@@ -17,11 +17,13 @@ The program should be called with command-line arguments constituting a space-se
 
 ## Blocks
 
-Blocks are internally represented as the product of three components:
+Blocks are named `IO` actions which each independently execute in their own thread.
+Periodically, a block will write some text to an `MVar` shared by all threads, prompting the main thread to update the text of the statusbar if anything has changed.
+All blocks are currently implemented in the same way:
 
 * A command to obtain the desired information from the external system. These are run by the [`System.Process`](https://hackage.haskell.org/package/process) library.
 * A parser to transform the raw output of the command into the string which will actually be displayed. This uses the [`Data.Attoparsec.Text`](https://hackage.haskell.org/package/attoparsec) library.
-* A thread which is forked to periodically request the update loop to re-run the command and parser. Threads achieve this by putting the array index of their block into an `MVar Int` shared by all threads.
+* Logic to determine when to re-run the command and parser, pushing the output to the main thread.
 
 The currently implemented blocks and the external commands they depend upon are listed below.
 
