@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 import Control.Monad
 import Control.Concurrent
@@ -7,17 +7,17 @@ import System.IO
 import System.Process
 import System.Environment
 
-import           Data.Char
-import           Data.List
-import           Data.Either
-import           Data.Array.IO
-import qualified Data.Map as M
-import           Data.Map (Map)
-import           Data.Time.Clock
-import           Data.Text (Text, pack)
-import qualified Data.Text            as T
-import qualified Data.Text.IO         as T
-import           Data.Attoparsec.Text as P
+import Data.Char
+import Data.List
+import Data.Either
+import Data.Array.IO
+import Data.Map qualified as M
+import Data.Map (Map)
+import Data.Time.Clock
+import Data.Text (Text, pack)
+import Data.Text            qualified as T
+import Data.Text.IO         qualified as T
+import Data.Attoparsec.Text as P
 
 -- | MAIN LOOP | --
 
