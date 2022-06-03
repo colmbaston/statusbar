@@ -4,6 +4,7 @@ import Control.Monad
 import Control.Concurrent
 
 import System.IO
+import System.Directory
 import System.Process
 import System.Environment
 
@@ -46,25 +47,32 @@ update v ta = do (i, new) <- takeMVar v
 -- | POLLING | --
 
 oneSecond :: Int
-oneSecond = 1000000
+oneSecond = 1_000_000
 
 pollMicroseconds :: Int -> IO Text -> Int -> MVar (Int, Text) -> IO ()
 pollMicroseconds n p i v = forever (p >>= putMVar v . (i, ) >> waitMicroseconds n)
 
 waitMicroseconds :: Int -> IO ()
 waitMicroseconds n = do ps <- fromInteger . diffTimeToPicoseconds . utctDayTime <$> getCurrentTime
-                        threadDelay (n - (ps `quot` 1000000) `rem` n)
+                        threadDelay (n - (ps `quot` 1_000_000) `rem` n)
+
+watchFile :: FilePath -> IO Text -> Int -> MVar (Int, Text) -> IO ()
+watchFile fp p i v = forever (do b <- doesFileExist fp
+                                 if b
+                                   then p >>= putMVar v . (i, ) >> callProcess "inotifywait" ["-qqre", "modify", fp]
+                                   else threadDelay oneSecond)
 
 -- | BLOCKS | --
 
 type Block = MVar (Int, Text) -> IO ()
 
 blocks :: Map String (Int -> Block)
-blocks = M.fromAscList [("battery",   battery),
-                        ("datetime",  datetime),
-                        ("dropbox",   dropbox),
-                        ("playerctl", playerctl),
-                        ("volume",    volume)]
+blocks = M.fromList [("battery",   battery),
+                     ("datetime",  datetime),
+                     ("dropbox",   dropbox),
+                     ("sync",      sync),
+                     ("playerctl", playerctl),
+                     ("volume",    volume)]
 
 systemCommand :: String -> [String] -> IO Text
 systemCommand c as = pack . (\(_, x, _) -> x) <$> readProcessWithExitCode c as ""
@@ -104,6 +112,22 @@ dropbox = pollMicroseconds oneSecond (runParser "dropbox" p <$> c)
                 "Dropbox: Not running!" <$ string "Dropbox isn't running!",
                 "Dropbox: Syncing..."   <$ pure ()]
 
+sync :: Int -> Block
+sync = watchFile fp (runParser "sync" p <$> c)
+  where
+    fp :: FilePath
+    fp = "/home/colm/.cache/sync-status"
+
+    c :: IO Text
+    c = do b <- doesFileExist fp
+           if b
+             then T.pack <$> readFile fp
+             else pure ""
+
+    p :: Parser Text
+    p = do status <- takeTill (== '\n')
+           pure (if status == "waiting" then "" else T.append "Sync Status: " status)
+
 playerctl :: Int -> Block
 playerctl = pollMicroseconds oneSecond (runParser "playerctl" p <$> c)
   where
@@ -117,7 +141,7 @@ playerctl = pollMicroseconds oneSecond (runParser "playerctl" p <$> c)
                       pure (T.init t <> " - " <> T.init a <> statusText <> "\n")
 
     p :: Parser Text
-    p = takeTill (=='\n')
+    p = takeTill (== '\n')
 
 volume :: Int -> Block
 volume = pollMicroseconds oneSecond (runParser "volume" p <$> c)

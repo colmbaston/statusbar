@@ -1,6 +1,7 @@
 # statusbar
 
-A text-based status bar written in Haskell. It was written solely for my own use with the [i3](https://i3wm.org/) and [Sway](https://swaywm.org/) window managers on my systems running [Arch Linux](https://www.archlinux.org/), so customisability is very limited outside of editing the source code, and it may depend on external packages that are unavailable on other systems.
+A text-based status bar written in Haskell.
+It was written solely for my personal use with the [i3](https://i3wm.org/) and [Sway](https://swaywm.org/) window managers on my systems running [Arch Linux](https://www.archlinux.org/), so customisability is very limited outside of editing the source code, and it may depend on external packages that are unavailable on other systems.
 
 ## Usage
 
@@ -27,10 +28,11 @@ All blocks are currently implemented in the same way:
 
 The currently implemented blocks and the external commands they depend upon are listed below.
 
-| Block Name | Command                                                                       |
-|------------|-------------------------------------------------------------------------------|
-| battery    | [`acpi`](https://www.archlinux.org/packages/community/x86_64/acpi/)           |
-| datetime   | `date`                                                                        |
-| dropbox    | [`dropbox-cli`](https://aur.archlinux.org/packages/dropbox-cli/)              |
-| playerctl  | [`playerctl`](https://www.archlinux.org/packages/community/x86_64/playerctl/) |
-| volume     | [`amixer`](https://www.archlinux.org/packages/extra/x86_64/alsa-utils/)       |
+| Block Name | Command                                                                         |
+|------------|---------------------------------------------------------------------------------|
+| battery    | [`acpi`](https://www.archlinux.org/packages/community/x86_64/acpi/)             |
+| datetime   | `date`                                                                          |
+| dropbox    | [`dropbox-cli`](https://aur.archlinux.org/packages/dropbox-cli/)                |
+| sync       | [`inotifywait`](https://archlinux.org/packages/community/x86_64/inotify-tools/) |
+| playerctl  | [`playerctl`](https://www.archlinux.org/packages/community/x86_64/playerctl/)   |
+| volume     | [`amixer`](https://www.archlinux.org/packages/extra/x86_64/alsa-utils/)         |

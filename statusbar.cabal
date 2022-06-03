@@ -16,6 +16,7 @@ executable statusbar
                        time       ^>= 1.12,
                        containers ^>= 0.6,
                        array      ^>= 0.5,
+                       directory  ^>= 1.3,
                        process    ^>= 1.6,
                        text       ^>= 2.0,
                        attoparsec ^>= 0.14
