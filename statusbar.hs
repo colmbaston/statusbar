@@ -11,13 +11,14 @@ import System.Environment
 import Data.Char
 import Data.List
 import Data.Either
+import Data.Functor
 import Data.Array.IO
 import Data.Map qualified as M
 import Data.Map (Map)
 import Data.Time.Clock
 import Data.Text (Text, pack)
-import Data.Text            qualified as T
-import Data.Text.IO         qualified as T
+import Data.Text    qualified as T
+import Data.Text.IO qualified as T
 import Data.Attoparsec.Text as P
 
 -- | MAIN LOOP | --
@@ -49,6 +50,9 @@ update v ta = do (i, new) <- takeMVar v
 oneSecond :: Int
 oneSecond = 1_000_000
 
+oneMinute :: Int
+oneMinute = 60 * oneSecond
+
 pollMicroseconds :: Int -> IO Text -> Int -> MVar (Int, Text) -> IO ()
 pollMicroseconds n p i v = forever (p >>= putMVar v . (i, ) >> waitMicroseconds n)
 
@@ -62,6 +66,24 @@ watchFile fp p i v = forever (do b <- doesFileExist fp
                                    then p >>= putMVar v . (i, ) >> callProcess "inotifywait" ["-qqre", "modify", fp]
                                    else threadDelay oneSecond)
 
+-- | XML | --
+
+data XML = Leaf Text | Node Text [XML] deriving Show
+
+xmlParse :: Parser XML
+xmlParse = choice [do void (char '<')
+                      tag <- takeTill (=='>')
+                      void (char '>')
+                      cs  <- manyTill xmlParse (string "</")
+                      void (string tag *> char '>')
+                      pure (Node tag cs),
+                   Leaf <$> takeTill (=='<')]
+
+xmlIndex :: [Text] -> XML -> [XML]
+xmlIndex []     xml           = pure xml
+xmlIndex (t:ts) (Node tag cs) = guard (tag == t) *> msum (map (xmlIndex ts) cs)
+xmlIndex _             _      = mzero
+
 -- | BLOCKS | --
 
 type Block = MVar (Int, Text) -> IO ()
@@ -70,6 +92,7 @@ blocks :: Map String (Int -> Block)
 blocks = M.fromList [("battery",   battery),
                      ("datetime",  datetime),
                      ("dropbox",   dropbox),
+                     ("solaredge", solaredge),
                      ("sync",      sync),
                      ("playerctl", playerctl),
                      ("volume",    volume)]
@@ -81,7 +104,7 @@ runParser :: Text -> Parser Text -> Text -> Text
 runParser n p = fromRight (n <> ": parse error") . parseOnly p
 
 battery :: Int -> Block
-battery = pollMicroseconds (60 * oneSecond) (runParser "battery" p <$> c)
+battery = pollMicroseconds oneMinute (runParser "battery" p <$> c)
   where
     c :: IO Text
     c = systemCommand "acpi" []
@@ -111,6 +134,25 @@ dropbox = pollMicroseconds oneSecond (runParser "dropbox" p <$> c)
     p = choice [""                      <$ string "Up to date",
                 "Dropbox: Not running!" <$ string "Dropbox isn't running!",
                 "Dropbox: Syncing..."   <$ pure ()]
+
+solaredge :: Int -> Block
+solaredge = pollMicroseconds (5 * oneMinute) (runParser "solaredge" p <$> c)
+  where
+    c :: IO Text
+    c = do msite <- lookupEnv "SOLAR_EDGE_SITE"
+           mapi  <- lookupEnv "SOLAR_EDGE_API_KEY"
+           case sequence [msite, mapi] of
+             Nothing          -> hPutStrLn stderr "SOLAR_EDGE environment variables not set" $> ""
+             Just [site, api] -> systemCommand "curl" ["https://monitoringapi.solaredge.com/sites/" ++ site ++ "/overview.xml?api_key=" ++ api]
+             _                -> error "impossible"
+
+    p :: Parser Text
+    p = do xml <- xmlIndex ["siteOverviewList", "dateValueSeries", "siteOverview"] <$> xmlParse
+           let xmlPower  = concatMap (xmlIndex ["currentPower", "power"])  xml
+               xmlEnergy = concatMap (xmlIndex ["lastDayData",  "energy"]) xml
+           case xmlPower ++ xmlEnergy of
+             [Leaf power, Leaf energy] -> pure ("Current Power: " <> power <> " W, Energy Today: " <> energy <> " Wh")
+             _                         -> mzero
 
 sync :: Int -> Block
 sync = watchFile fp (runParser "sync" p <$> c)

@@ -28,11 +28,14 @@ All blocks are currently implemented in the same way:
 
 The currently implemented blocks and the external commands they depend upon are listed below.
 
-| Block Name | Command                                                                         |
-|------------|---------------------------------------------------------------------------------|
-| battery    | [`acpi`](https://www.archlinux.org/packages/community/x86_64/acpi/)             |
-| datetime   | `date`                                                                          |
-| dropbox    | [`dropbox-cli`](https://aur.archlinux.org/packages/dropbox-cli/)                |
-| sync       | [`inotifywait`](https://archlinux.org/packages/community/x86_64/inotify-tools/) |
-| playerctl  | [`playerctl`](https://www.archlinux.org/packages/community/x86_64/playerctl/)   |
-| volume     | [`amixer`](https://www.archlinux.org/packages/extra/x86_64/alsa-utils/)         |
+| Block Name   | Command                                                                         |
+|--------------|---------------------------------------------------------------------------------|
+| `battery`    | [`acpi`](https://www.archlinux.org/packages/community/x86_64/acpi/)             |
+| `datetime`   | `date`                                                                          |
+| `dropbox`    | [`dropbox-cli`](https://aur.archlinux.org/packages/dropbox-cli/)                |
+| `solaredge`  | [`curl`](https://archlinux.org/packages/core/x86_64/curl/)                      |
+| `sync`       | [`inotifywait`](https://archlinux.org/packages/community/x86_64/inotify-tools/) |
+| `playerctl`  | [`playerctl`](https://www.archlinux.org/packages/community/x86_64/playerctl/)   |
+| `volume`     | [`amixer`](https://www.archlinux.org/packages/extra/x86_64/alsa-utils/)         |
+
+Additionally, the `solaredge` block requires the `SOLAR_EDGE_SITE` and `SOLAR_EDGE_API_KEY` environment variables to be set to gain access to the [SolarEdge](https://monitoring.solaredge.com) monitoring API.
